@@ -221,39 +221,22 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script>
         // Supabase 설정
         const SUPABASE_URL = 'https://mwrkoxnxdzdocemztzvj.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13cmtveG54ZHpkb2NlbXp0enZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NzEwNDQsImV4cCI6MjA4NTQ0NzA0NH0.urW7sAc-xQ0wixDFkczvSJn7AjGKvlW7edB7wLw-vuI';
 
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+        let supabaseClient = null;
         let items = [];
 
-        // Supabase에서 데이터 불러오기
-        async function loadItems() {
-            const { data, error } = await supabase
-                .from('shopping_items')
-                .select('*')
-                .order('created_at', { ascending: true });
-
-            if (error) {
-                console.error('데이터 로드 오류:', error);
-                return;
-            }
-
-            items = data || [];
-            render();
-        }
-
-        // 아이템 추가
-        async function addItem() {
+        // 전역 함수로 명시적 선언
+        window.addItem = async function() {
             const input = document.getElementById('itemInput');
             const text = input.value.trim();
 
             if (text) {
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('shopping_items')
                     .insert([{ text, checked: false }])
                     .select();
@@ -268,14 +251,13 @@
                 input.value = '';
                 input.focus();
             }
-        }
+        };
 
-        // 체크 상태 토글
-        async function toggleItem(id) {
+        window.toggleItem = async function(id) {
             const item = items.find(i => i.id === id);
             if (!item) return;
 
-            const { error } = await supabase
+            const { error } = await supabaseClient
                 .from('shopping_items')
                 .update({ checked: !item.checked })
                 .eq('id', id);
@@ -287,11 +269,10 @@
 
             item.checked = !item.checked;
             render();
-        }
+        };
 
-        // 아이템 삭제
-        async function deleteItem(id) {
-            const { error } = await supabase
+        window.deleteItem = async function(id) {
+            const { error } = await supabaseClient
                 .from('shopping_items')
                 .delete()
                 .eq('id', id);
@@ -303,12 +284,11 @@
 
             items = items.filter(i => i.id !== id);
             render();
-        }
+        };
 
-        // 전체 삭제
-        async function clearAll() {
+        window.clearAll = async function() {
             if (confirm('모든 항목을 삭제하시겠습니까?')) {
-                const { error } = await supabase
+                const { error } = await supabaseClient
                     .from('shopping_items')
                     .delete()
                     .neq('id', '00000000-0000-0000-0000-000000000000');
@@ -321,7 +301,7 @@
                 items = [];
                 render();
             }
-        }
+        };
 
         function render() {
             const list = document.getElementById('list');
@@ -357,15 +337,44 @@
             return div.innerHTML;
         }
 
-        // Enter 키로 추가
-        document.getElementById('itemInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                addItem();
-            }
-        });
+        async function loadItems() {
+            const { data, error } = await supabaseClient
+                .from('shopping_items')
+                .select('*')
+                .order('created_at', { ascending: true });
 
-        // 초기 데이터 로드
-        loadItems();
+            if (error) {
+                console.error('데이터 로드 오류:', error);
+                return;
+            }
+
+            items = data || [];
+            render();
+        }
+
+        // 초기화
+        function init() {
+            try {
+                supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+                document.getElementById('itemInput').addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        window.addItem();
+                    }
+                });
+
+                loadItems();
+            } catch (error) {
+                console.error('Supabase 초기화 오류:', error);
+            }
+        }
+
+        // DOM 로드 후 초기화
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
     </script>
 </body>
 </html>
